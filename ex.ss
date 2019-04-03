@@ -123,6 +123,12 @@
 
 ;;; Runs any loaded tests for the given exercise and all previous exercises.
 (define (run-tests ex)
+  (define (in-order-map f ls)
+    (define (iter result ls)
+      (if (null? ls)
+          result
+          (iter (cons (f (car ls)) result) (cdr ls))))
+    (reverse (iter '() ls)))
   (let* ([test-set (get-test-set ex)]
          [sets-to-run (if (member 'no-regression (test-set-flags test-set))
                           (list test-set)
@@ -130,12 +136,12 @@
                                     (or (ex-lt (test-set-ex test-set) ex)
                                     (equal? ex (test-set-ex test-set))))
                                   all-tests))])
-    (map (lambda (test-set)
+    (in-order-map (lambda (test-set)
            (cons (test-set-ex test-set)
-                 (map (lambda (test)
+                 (in-order-map (lambda (test)
                         (run-test (test-expression test) (test-expected-result test)))
                       (test-set-tests test-set))))
-          sets-to-run)))   
+          sets-to-run)))
 
 ;;; Transforms a list of results into a summary string.
 (define (test-results->summary ex results)
@@ -165,6 +171,16 @@
            this-summary]
           [else 
            (format "~a, ~a" this-summary reg-summary)])))
+
+(define (get-failed-tests ex)
+  (filter (lambda (test-set)
+            (> (length test-set) 1))
+          (map (lambda (test-set)
+             (cons (car test-set)
+                   (filter (lambda (test-result) 
+                             (not (car test-result))) 
+                           (cdr test-set)))) 
+           (run-tests ex))))
 
 #| Public Utilities |#
 
